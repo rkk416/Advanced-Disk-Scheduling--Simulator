@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disk Scheduling Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="page1.css">
+</head>
+<body>
+
+<div class="particles" id="particles"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-title">DISK <span>SCHEDULING</span> SIMULATOR</div>
+    <div class="hdr-sub">// OS ALGORITHMS · SEEK OPTIMIZATION · REAL-TIME VISUALIZATION</div>
+  </div>
+  <div class="hdr-badge"><span class="status-dot"></span>SYSTEM ACTIVE</div>
+</div>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div>
+      <div class="sec-label">Configuration</div>
+      <div class="field">
+        <label>DISK SIZE (CYLINDERS)</label>
+        <input type="number" id="diskSize" value="200" min="50" max="999">
+      </div>
+      <div class="field">
+        <label>INITIAL HEAD POSITION</label>
+        <input type="number" id="headPos" value="53" min="0">
+      </div>
+      <div class="field">
+        <label>REQUEST QUEUE (COMMA-SEPARATED)</label>
+        <input type="text" id="requests" value="98,183,37,122,14,124,65,67">
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-label">Algorithm</div>
+      <div class="algo-grid">
+        <div class="algo-btn active" id="btn-FCFS" onclick="selectAlgo('FCFS')">FCFS</div>
+        <div class="algo-btn" id="btn-SSTF" onclick="selectAlgo('SSTF')">SSTF</div>
+        <div class="algo-btn" id="btn-SCAN" onclick="selectAlgo('SCAN')">SCAN</div>
+        <div class="algo-btn" id="btn-CSCAN" onclick="selectAlgo('C-SCAN')">C-SCAN</div>
+      </div>
+    </div>
+
+    <div id="dirWrap" style="display:none">
+      <div class="sec-label">Direction</div>
+      <div class="dir-row">
+        <div class="dir-btn active" id="dirUp" onclick="selectDir('up')">▲ HIGH</div>
+        <div class="dir-btn" id="dirDown" onclick="selectDir('down')">▼ LOW</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-label">Animation Speed</div>
+      <div class="speed-row">
+        <label>SLOW</label>
+        <input type="range" id="speedSlider" min="1" max="5" value="3">
+        <label>FAST</label>
+        <span class="speed-val" id="speedVal">3x</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-label">Info</div>
+      <div class="algo-info" id="algoInfo">
+        <b>FCFS — First Come, First Served</b><br>
+        Processes requests in arrival order. Simple to implement but can cause excessive head movement. Best for light loads with clustered requests.
+      </div>
+    </div>
+
+    <div style="margin-top:auto">
+      <button class="run-btn" id="runBtn" onclick="startSimulation()">▶ RUN SIMULATION</button>
+      <button class="reset-btn" onclick="resetAll()">↺ RESET</button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <!-- METRICS -->
+    <div class="metrics-row fade-in">
+      <div class="metric" style="--accent-color:var(--cyan)">
+        <div class="corner-deco tl"></div><div class="corner-deco tr"></div>
+        <div class="corner-deco bl"></div><div class="corner-deco br"></div>
+        <div class="metric-label">Total Seek Distance</div>
+        <div class="metric-val" id="mTotal" style="color:var(--cyan)">—</div>
+        <div class="metric-unit">CYLINDERS</div>
+      </div>
+      <div class="metric" style="--accent-color:var(--pink)">
+        <div class="corner-deco tl"></div><div class="corner-deco tr"></div>
+        <div class="corner-deco bl"></div><div class="corner-deco br"></div>
+        <div class="metric-label">Avg Seek Time</div>
+        <div class="metric-val" id="mAvg" style="color:var(--pink)">—</div>
+        <div class="metric-unit">CYL / REQUEST</div>
+      </div>
+      <div class="metric" style="--accent-color:var(--green)">
+        <div class="corner-deco tl"></div><div class="corner-deco tr"></div>
+        <div class="corner-deco bl"></div><div class="corner-deco br"></div>
+        <div class="metric-label">Throughput</div>
+        <div class="metric-val" id="mThru" style="color:var(--green)">—</div>
+        <div class="metric-unit">REQ / 1000 CYL</div>
+      </div>
+      <div class="metric" style="--accent-color:var(--amber)">
+        <div class="corner-deco tl"></div><div class="corner-deco tr"></div>
+        <div class="corner-deco bl"></div><div class="corner-deco br"></div>
+        <div class="metric-label">Efficiency</div>
+        <div class="metric-val" id="mEff" style="color:var(--amber)">—</div>
+        <div class="metric-unit">% VS WORST</div>
+      </div>
+    </div>
+
+    <!-- DISK PLATTER + SEEK PATH -->
+    <div class="two-col fade-in">
+      <!-- DISK PLATTER ANIMATION -->
+      <div class="disk-viz-wrap">
+        <div class="sec-label">Disk Platter</div>
+        <canvas id="diskPlatter" height="180"></canvas>
+      </div>
+
+      <!-- SEEK PATH -->
+      <div class="seek-wrap">
+        <div class="sec-label">Seek Path Visualization</div>
+        <div class="sim-progress"><div class="sim-progress-bar" id="progressBar"></div></div>
+        <canvas id="seekCanvas" height="160"></canvas>
+      </div>
+    </div>
+
+    <!-- COMPARISON + SEQUENCE -->
+    <div class="two-col fade-in">
+      <!-- ALGORITHM COMPARISON -->
+      <div class="compare-section">
+        <div class="sec-label">All Algorithms Compared</div>
+        <div class="compare-bars" id="compareBars">
+          <div style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px">Run simulation to compare all algorithms</div>
+        </div>
+      </div>
+
+      <!-- SEQUENCE -->
+      <div class="compare-section">
+        <div class="sec-label">Service Sequence</div>
+        <div class="seq-box" id="seqBox">
+          <span style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px">Awaiting simulation...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP LOG -->
+    <div class="fade-in">
+      <div class="sec-label">Step-by-Step Log</div>
+      <div class="step-log" id="stepLog">
+        <div style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px;padding:4px 0">No steps yet. Run a simulation to see the detailed breakdown.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="page1.js"></script>
+</body>
+</html>
